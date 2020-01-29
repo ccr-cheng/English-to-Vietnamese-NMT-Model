@@ -1,0 +1,47 @@
+Reading datasets ...
+Datasets reading complete!
+Building vocabulary ...
+Vocabulary building complete!
+Loading models from NMT.pt ...
+Loading models complete!
+
+Testing on valid set ...
+100% 38/38 [00:00<00:00, 41.30it/s]
+Calulating BLEU score on valid set ...
+100% 1208/1208 [00:18<00:00, 64.04it/s]
+Testing on test set ...
+100% 48/48 [00:01<00:00, 46.24it/s]
+Calulating BLEU score on test set ...
+100% 1529/1529 [00:22<00:00, 69.22it/s]
+Valid:	Loss: 56.000	BLEU: 25.27
+Test:	Loss: 58.803	BLEU: 22.65
+Evaluating on test set...
+
+> so the first rule is that photos combined should have the same perspective .
+= nên nguyên tắc đầu tiên đó là sự kết hợp các bức ảnh nên có chung một ngoại cảnh
+< vì vậy , quy tắc đầu tiên là những bức ảnh này cũng có cùng một quan điểm tương tự . <eos>
+
+> add this buzzer for some extra punch and you &apos;ve created a noise machine .
+= gắn thêm chiếc chuông điện này và giờ bạn đã tạo ra máy tạo tiếng động .
+< thêm vào nút nút này cho một vài nút thắt và bạn tạo ra một chiếc máy . <eos>
+
+> the transistor was a small plastic unit that would take us from a world of static bricks piled on top of each other to a world where everything was interactive .
+= transistor là một cấu kiện điện tử bằng nhựa mà sẽ đưa chúng ta từ thế giới của những khối gạch bất động chồng lên nhau đến thế giới mà mọi thứ tương tác được với nhau .
+< chiếc bán dẫn đó là một đơn vị nhựa nhỏ có thể đưa chúng ta từ một thế giới các viên gạch kín bám trên từng một thế giới mà mọi thứ đều có khả năng tương tác . <eos>
+
+> who are they actually supposed to be informing ?
+= ai là người trông mong được thông tin ?
+< ai là họ có thể được định kiến ? <eos>
+
+> she took me out back and she said , &quot; bryan , i &apos;m going to tell you something , but you don &apos;t tell anybody what i tell you . &quot;
+= bà dẫn tôi ra khỏi phòng , ra phía sau nhà và nói &quot; bryan này , bà sẽ nói với con một chuyện nhưng con đừng nói với ai nhé &quot;
+< bà ấy đưa tôi đi và nói , &quot; brian , tôi sẽ nói với bạn một điều gì đó , nhưng bạn không nói với ai đó nói gì . &quot; <eos>
+
+Please enter sentence to be translated:
+
+hello!
+< xin chào ! <eos> 
+
+neural machine translation is great!
+< chuyển tải thần kinh thật tuyệt ! <eos> 
+
