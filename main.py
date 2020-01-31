@@ -6,8 +6,8 @@ from torchtext.data import Field, BucketIterator
 from torchtext.data.metrics import bleu_score
 from torchtext.datasets import TranslationDataset
 
-from tqdm import tqdm
 import time, random, re
+from tqdm import tqdm
 import argparse
 
 from transformerModel import TransformerModel
@@ -17,18 +17,22 @@ parser.add_argument('mode', choices=['train', 'test'], help='running mode')
 parser.add_argument('--lr', type=float, default=1e-4, help='initial learning rate')
 parser.add_argument('--num-epoch', type=int, default=10, help='number of training epochs')
 parser.add_argument('--batch-size', type=int, default=32, help='batch size')
+parser.add_argument('--embed-size', type=int, default=256, help='embedding size (d_model)')
+parser.add_argument('--hidden-size', type=int, default=512, help='hidden size (in the feedforward layers)')
 parser.add_argument('--max-length', type=int, default=64, help='max length to trim the dataset')
 parser.add_argument('--clip-grad', type=float, default=1.0, help='parameter clipping threshold')
 parser.add_argument('--print-every', type=int, default=100, help='print training procedure every number of batches')
 parser.add_argument('--save-every', type=int, default=3000, help='save model every number of batches')
 parser.add_argument('--save-path', type=str, default='NMT.pt', help='model path for saving')
-parser.add_argument('--model', type=str, default='NMT.pt', help='model path for evaluation')
 parser.add_argument('--checkpoint', type=str, default='', help='checkpoint for resuming training')
+parser.add_argument('--model', type=str, default='NMT.pt', help='model path for evaluation')
 args = parser.parse_args()
 
 LR = args.lr
 N_EPOCHS = args.num_epoch
 BATCH_SIZE = args.batch_size
+EMBED_SIZE = args.embed_size
+HIDDEN_SIZE = args.hidden_size
 MAX_LENGTH = args.max_length
 CLIP_GRAD = args.clip_grad
 PRINT_EVERY = args.print_every
@@ -59,14 +63,11 @@ print('Vocabulary building complete!')
 
 train_iter, valid_iter, test_iter = BucketIterator.splits(
     (train_data, valid_data, test_data),
-    batch_size=BATCH_SIZE, device=device,
-    sort_within_batch=True, sort_key=lambda x: len(x.src)
+    batch_size=BATCH_SIZE, device=device
 )
 
-EMBED_SIZE = 256
 INPUT_SIZE = len(SRC.vocab)
 OUTPUT_SIZE = len(TRG.vocab)
-HIDDEN_SIZE = 512
 SOS_token = TRG.vocab.stoi['<sos>']
 EOS_token = TRG.vocab.stoi['<eos>']
 PAD_token = TRG.vocab.stoi['<pad>']
@@ -244,6 +245,14 @@ def train():
         exit(1)
 
 
+def cleanString(s):
+    s = s.lower().strip()
+    s = re.sub(r'([,.:;!?])', r' \1', s)
+    s = re.sub(r'\'', r' &apos;', s)
+    s = re.sub(r'\"', r' &quot; ', s)
+    return s.split(' ')
+
+
 def evaluate():
     path = args.model
     modeldata = torch.load(path, map_location=device)
@@ -265,13 +274,6 @@ def evaluate():
     print(f'Test:\tLoss: {test_loss:.3f}\tBLEU: {test_bleu:.2f}')
     print('Evaluating on test set...\n')
     evaluateRandomly(test_data)
-
-    def cleanString(s):
-        s = s.lower().strip()
-        s = re.sub(r'([,.:;!?])', r' \1', s)
-        s = re.sub(r'\'', r' &apos;', s)
-        s = re.sub(r'\"', r' &quot; ', s)
-        return s.split(' ')
 
     print('Please enter sentence to be translated:\n')
     while True:
