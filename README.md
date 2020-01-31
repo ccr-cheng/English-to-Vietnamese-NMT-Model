@@ -2,34 +2,54 @@
 
 ——by ccr
 
-20.1.29
+20.1.31
 
 ### Network Architecture
 
-seq2seq model with global attention.
+Transformer model, with positional encoding.
 
 ### Usage
 
-Run `python3 run.py` to initialize a training. The training process saves the models to `NMT.ckpt` if an exception occurs or receives a `KeyBoardInterrupt`. It also automatically saves the models to `NMTtmp.pt` once several batches have done. Also the models are saved to `NMT.pt` after the whole training process has been done.
+Run following to start training.
 
-Run `python3 run.py <CheckPointFile>` to resume training from certain checkpoint.
+```bash
+python3 main.py train
+```
 
-Run `python3 evalModel.py <ModelFile>` to evaluate certain models.
+The script accepts following optional argument:
+
+```bash
+optional arguments:
+  -h, --help            show this help message and exit
+  --lr                  initial learning rate
+  --num-epoch           number of training epochs
+  --batch-size          batch size
+  --embed-size          embedding size (d_model)
+  --hidden-size         hidden size (in the feedforward layers)
+  --max-length          max length to trim the dataset
+  --clip-grad           parameter clipping threshold
+  --print-every         print training procedure every number of batches
+  --save-every          save model every number of batches
+  --save-path           model path for saving
+  --checkpoint          checkpoint for resuming training
+```
+
+Run following to start testing.
+
+```bash
+python3 main.py test --model [model file]
+```
 
 ### File Structure
 
-`run.py` is the main file where training occurs.
+`main.py` is the main file where training and testing occurs.
 
-`models.py` defines the encoder and the attention decoder model.
-
-`evalModel.py` provides a way to evaluate the trained models.
+`transformerModel.py` defines the Transformer model.
 
 `./en_vi` stores the raw data of English/Vietnamese dataset.
 
 ### Results
 
-BLEU score on valid dataset: 25.27
+BLEU score on valid dataset: 26.45
 
-BLEU score on test dataset: 22.65
-
-See `training_procedure.txt` and `results.txt` for more details.
+BLEU score on test dataset: 24.06
