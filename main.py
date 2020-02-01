@@ -14,15 +14,17 @@ from transformerModel import TransformerModel
 
 parser = argparse.ArgumentParser(description='An implementation of the Transformer model')
 parser.add_argument('mode', choices=['train', 'test'], help='running mode')
-parser.add_argument('--lr', type=float, default=1e-4, help='initial learning rate')
-parser.add_argument('--num-epoch', type=int, default=10, help='number of training epochs')
-parser.add_argument('--batch-size', type=int, default=32, help='batch size')
+parser.add_argument('--lr', type=float, default=5e-4, help='initial learning rate')
+parser.add_argument('--lr-decay', type=float, default=0.5, help='learning rate decay factor')
+parser.add_argument('--patience', type=int, default=3, help='patience before lr decay')
+parser.add_argument('--num-epoch', type=int, default=20, help='number of training epochs')
+parser.add_argument('--num-layer', type=int, default=6, help='number of layers in encoder and decoder')
+parser.add_argument('--batch-size', type=int, default=64, help='batch size')
 parser.add_argument('--embed-size', type=int, default=256, help='embedding size (d_model)')
 parser.add_argument('--hidden-size', type=int, default=512, help='hidden size (in the feedforward layers)')
 parser.add_argument('--max-length', type=int, default=64, help='max length to trim the dataset')
 parser.add_argument('--clip-grad', type=float, default=1.0, help='parameter clipping threshold')
 parser.add_argument('--print-every', type=int, default=100, help='print training procedure every number of batches')
-parser.add_argument('--save-every', type=int, default=3000, help='save model every number of batches')
 parser.add_argument('--save-path', type=str, default='NMT.pt', help='model path for saving')
 parser.add_argument('--checkpoint', type=str, default='', help='checkpoint for resuming training')
 parser.add_argument('--model', type=str, default='NMT.pt', help='model path for evaluation')
@@ -33,10 +35,10 @@ N_EPOCHS = args.num_epoch
 BATCH_SIZE = args.batch_size
 EMBED_SIZE = args.embed_size
 HIDDEN_SIZE = args.hidden_size
+NUM_LAYER = args.num_layer
 MAX_LENGTH = args.max_length
 CLIP_GRAD = args.clip_grad
 PRINT_EVERY = args.print_every
-SAVE_EVERY = args.save_every
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -72,27 +74,22 @@ SOS_token = TRG.vocab.stoi['<sos>']
 EOS_token = TRG.vocab.stoi['<eos>']
 PAD_token = TRG.vocab.stoi['<pad>']
 
-NMTmodel = TransformerModel(INPUT_SIZE, EMBED_SIZE, HIDDEN_SIZE, OUTPUT_SIZE,
+NMTmodel = TransformerModel(INPUT_SIZE, EMBED_SIZE, HIDDEN_SIZE, OUTPUT_SIZE, NUM_LAYER,
                             MAX_LENGTH, PAD_token, SOS_token, EOS_token).to(device)
 criterion = nn.CrossEntropyLoss(ignore_index=PAD_token).to(device)
 optimizer = optim.Adam(NMTmodel.parameters(), lr=LR)
-cur_batch = 0
-cur_epoch = 0
+scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=args.lr_decay,
+                                                 verbose=True, patience=args.patience)
 start_time = time.time()
 
 
-def train_epoch(print_every, save_every=1000, start_batch=0):
-    global cur_batch
+def train_epoch(cur_epoch, print_every):
     epoch_loss = 0
     batch_num = len(train_iter)
     NMTmodel.train()
 
     with tqdm(total=print_every) as pbar:
         for i, batch in enumerate(train_iter):
-            # skip trained
-            if i < start_batch: continue
-            cur_batch = i
-
             # src: (max_src, b)
             src = batch.src
             # trg: (max_trg, b)
@@ -123,10 +120,6 @@ def train_epoch(print_every, save_every=1000, start_batch=0):
                 evaluateRandomly(valid_data, 1)
                 NMTmodel.train()
                 pbar.reset()
-
-            if (i + 1) % save_every == 0:
-                print('Saving current model ...\n')
-                saveModel('NMTtmp.pt')
 
     return epoch_loss / batch_num
 
@@ -187,62 +180,41 @@ def cal_bleu_score(data):
     return bleu_score(preds, trgs) * 100
 
 
-def saveModel(path=args.save_path):
+def saveModel(path):
     torch.save({
         'model_state': NMTmodel.state_dict(),
-        'epoch': cur_epoch,
-        'batch_num': cur_batch
     }, path)
 
 
 def train():
-    global cur_batch, cur_epoch
-
     if args.checkpoint != '':
         path = args.checkpoint
         print(f'Loading checkpoint from {path} ...')
         checkpoint = torch.load(path)
         NMTmodel.load_state_dict(checkpoint['model_state'])
-        cur_epoch = checkpoint['epoch']
-        cur_batch = checkpoint['batch_num']
-        print(f'Checkpoint loading complete! Starting training from '
-              f'epoch {cur_epoch}, batch {cur_batch}\n')
+        print(f'Checkpoint loading complete!\n')
 
-    try:
-        for epoch in range(N_EPOCHS):
-            # skip trained epochs
-            if epoch < cur_epoch:
-                continue
-            cur_epoch = epoch
+    best_score = float('inf')
+    for epoch in range(N_EPOCHS):
+        start_epoch = time.time()
+        train_loss = train_epoch(epoch, PRINT_EVERY)
 
-            start_epoch = time.time()
-            train_loss = train_epoch(PRINT_EVERY, SAVE_EVERY, cur_batch)
+        secs = int(time.time() - start_epoch)
+        mins = secs // 60
+        secs = secs % 60
 
-            secs = int(time.time() - start_epoch)
-            mins = secs // 60
-            secs = secs % 60
+        print('Checking performance on valid dataset...')
+        valid_loss = valid(valid_iter)
+        print(f'Epoch: {epoch}', f' | time in {mins} minutes, {secs} seconds')
+        print(f'\tLoss: {train_loss:.4f}(train)')
+        print(f'\tLoss: {valid_loss:.4f}(valid)')
+        scheduler.step(valid_loss)
+        if valid_loss < best_score:
+            best_score = valid_loss
+            print(f'save currently the best model to {args.save_path}\n')
+            saveModel(args.save_path)
 
-            print('Checking performance on valid dataset...')
-            valid_loss = valid(valid_iter)
-            print(f'Epoch: {epoch}', f' | time in {mins} minutes, {secs} seconds')
-            print(f'\tLoss: {train_loss:.4f}(train)')
-            print(f'\tLoss: {valid_loss:.4f}(valid)')
-
-            evaluateRandomly(valid_data)
-            saveModel()
-            cur_batch = 0
-
-    except Exception as e:
-        path = 'NMT.ckpt'
-        print(f'A {type(e).__name__} occurs! Saving model to {path}')
-        # saveModel(path)
-        raise
-
-    except KeyboardInterrupt:
-        path = 'NMT.ckpt'
-        print(f'Training interrupted! Saving model to {path}')
-        # saveModel(path)
-        exit(1)
+        evaluateRandomly(valid_data)
 
 
 def cleanString(s):

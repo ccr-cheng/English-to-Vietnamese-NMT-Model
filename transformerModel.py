@@ -23,10 +23,11 @@ class PositionEncoder(nn.Module):
 
 
 class TransformerEncoder(nn.Module):
-    def __init__(self, input_size, emb_size, hidden_size, max_len=64):
+    def __init__(self, input_size, emb_size, hidden_size, num_layer, max_len=64):
         super().__init__()
         self.emb_size = emb_size
         self.hidden_size = hidden_size
+        self.num_layer = num_layer
         self.scale = math.sqrt(emb_size)
 
         self.embedding = nn.Embedding(input_size, emb_size)
@@ -36,7 +37,7 @@ class TransformerEncoder(nn.Module):
                                                    dim_feedforward=hidden_size,
                                                    dropout=0.1, activation='gelu')
         encoder_norm = nn.LayerNorm(emb_size)
-        self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=3, norm=encoder_norm)
+        self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layer, norm=encoder_norm)
 
     def forward(self, src, src_mask):
         src = self.embedding(src) * self.scale
@@ -46,10 +47,11 @@ class TransformerEncoder(nn.Module):
 
 
 class TransformerDecoder(nn.Module):
-    def __init__(self, output_size, emb_size, hidden_size, max_len=64):
+    def __init__(self, output_size, emb_size, hidden_size, num_layer, max_len=64):
         super().__init__()
         self.emb_size = emb_size
         self.hidden_size = hidden_size
+        self.num_layer = num_layer
         self.scale = math.sqrt(emb_size)
 
         self.embedding = nn.Embedding(output_size, emb_size)
@@ -58,7 +60,7 @@ class TransformerDecoder(nn.Module):
                                                    dim_feedforward=hidden_size,
                                                    dropout=0.1, activation='gelu')
         decoder_norm = nn.LayerNorm(emb_size)
-        self.decoder = nn.TransformerDecoder(decoder_layer, num_layers=3, norm=decoder_norm)
+        self.decoder = nn.TransformerDecoder(decoder_layer, num_layers=num_layer, norm=decoder_norm)
         self.fc = nn.Linear(emb_size, output_size)
 
     def forward(self, trg, enc_output, sub_mask, mask):
@@ -71,10 +73,10 @@ class TransformerDecoder(nn.Module):
 
 class TransformerModel(nn.Module):
     def __init__(self, input_size, emb_size, hidden_size, output_size,
-                 max_len, pad_token, sos_token, eos_token):
+                 num_layer, max_len, pad_token, sos_token, eos_token):
         super().__init__()
-        self.encoder = TransformerEncoder(input_size, emb_size, hidden_size, max_len)
-        self.decoder = TransformerDecoder(output_size, emb_size, hidden_size, max_len)
+        self.encoder = TransformerEncoder(input_size, emb_size, hidden_size, num_layer, max_len)
+        self.decoder = TransformerDecoder(output_size, emb_size, hidden_size, num_layer, max_len)
         self.pad_token = pad_token
         self.sos_token = sos_token
         self.eos_token = eos_token
@@ -136,12 +138,12 @@ class TransformerModel(nn.Module):
 
 
 if __name__ == '__main__':
-    transformer = TransformerModel(1024, 256, 512, 1024, 64, 0, 1, 2)
+    transformer = TransformerModel(1024, 256, 512, 1024, 6, 64, 0, 1, 2)
     print(transformer)
 
     test_src = torch.randint(1, 10, (10, 16))
     test_trg = torch.randint(1, 10, (12, 16))
     test_output = transformer(test_src, test_trg)
-    inf_output = transformer.inference(test_src, 15)
+    inf_output = transformer.inference(test_src[0], 15)
     print(test_output.size())
     print(inf_output.size())
